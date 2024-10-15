@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TestContract Interaction</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+</head>
+<body>
+    <h1>TestContract Interaction</h1>
+    
+    <div>
+        <h2>Stored Data: <span id="storedData">Loading...</span></h2>
+        <input type="number" id="newData" placeholder="Enter new value" />
+        <button id="setDataBtn">Set New Data</button>
+    </div>
+    
+    <script>
+        const contractAddress = "0x8763F9E48Bc188D037A595FbfF4481e57725A5c9"; // Replace with your deployed contract address
+        const abi = [
+            {
+              "inputs": [],
+              "stateMutability": "nonpayable",
+              "type": "constructor"
+            },
+            {
+              "anonymous": false,
+              "inputs": [
+                {
+                  "indexed": false,
+                  "internalType": "uint256",
+                  "name": "value",
+                  "type": "uint256"
+                }
+              ],
+              "name": "Deployed",
+              "type": "event"
+            },
+            {
+              "inputs": [],
+              "name": "storedData",
+              "outputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "",
+                  "type": "uint256"
+                }
+              ],
+              "stateMutability": "view",
+              "type": "function",
+              "constant": true
+            },
+            {
+              "inputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "x",
+                  "type": "uint256"
+                }
+              ],
+              "name": "set",
+              "outputs": [],
+              "stateMutability": "nonpayable",
+              "type": "function"
+            },
+            {
+              "inputs": [],
+              "name": "get",
+              "outputs": [
+                {
+                  "internalType": "uint256",
+                  "name": "",
+                  "type": "uint256"
+                }
+              ],
+              "stateMutability": "view",
+              "type": "function",
+              "constant": true
+            }
+          ];
+
+        // Initialize web3 and set the provider
+        window.addEventListener('load', async () => {
+            // Check if Web3 is injected
+            if (window.ethereum) {
+                window.web3 = new Web3(window.ethereum);
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+            } else {
+                alert('Please install MetaMask to use this feature!');
+                return;
+            }
+
+            const contract = new web3.eth.Contract(abi, contractAddress);
+            const accounts = await web3.eth.getAccounts();
+
+            // Fetch and display stored data
+            const storedData = await contract.methods.get().call();
+            document.getElementById('storedData').innerText = storedData;
+
+            // Set new data
+            document.getElementById('setDataBtn').addEventListener('click', async () => {
+                const newValue = document.getElementById('newData').value;
+                await contract.methods.set(newValue).send({ from: accounts[0] });
+
+                // Update displayed stored data
+                const updatedStoredData = await contract.methods.get().call();
+                document.getElementById('storedData').innerText = updatedStoredData;
+            });
+        });
+    </script>
+</body>
+</html>
