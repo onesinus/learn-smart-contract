@@ -10,6 +10,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@helia/dag-cbor": "^4.0.0",
+    "@helia/dag-json": "^4.0.0",
+    "@helia/json": "^4.0.0",
+    "@helia/strings": "^4.0.0",
+    "helia": "^5.1.0",
     "web3": "^4.13.0"
   },
   "devDependencies": {

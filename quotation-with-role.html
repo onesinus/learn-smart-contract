@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quotation System with Roles</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            color: #495057;
+        }
+        .container {
+            max-width: 1200px;
+            margin-top: 40px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .table thead {
+            background-color: #007bff;
+            color: #fff;
+        }
+        .table td, .table th {
+            vertical-align: middle;
+        }
+        .table-responsive {
+            margin-bottom: 20px;
+        }
+        .btn-custom {
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Quotation System with Roles</h1>
+
+        <!-- Alert for errors -->
+        <div id="alertContainer"></div>
+
+        <div class="row">
+            <!-- Role Selection Section -->
+            <div class="col-md-6">
+                <div class="card p-4">
+                    <h4>Select Role</h4>
+                    <div class="form-group">
+                        <label for="role">Role</label>
+                        <select id="role" class="form-control">
+                            <option value="Farmer">Farmer</option>
+                            <option value="Buyer">Buyer</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-custom w-100" onclick="assignRole()">Assign Role</button>
+                </div>
+            </div>
+
+            <!-- Create Quotation (Only visible to Farmers) -->
+            <div class="col-md-6">
+                <div class="card p-4">
+                    <h4>Create Quotation</h4>
+                    <p><small>(Available for Farmers only)</small></p>
+                    <div class="form-group">
+                        <input type="text" id="product" class="form-control" placeholder="Product">
+                    </div>
+                    <div class="form-group">
+                        <input type="number" id="quantity" class="form-control" placeholder="Quantity">
+                    </div>
+                    <div class="form-group">
+                        <input type="number" id="price" class="form-control" placeholder="Price">
+                    </div>
+                    <button class="btn btn-success btn-custom w-100" onclick="createQuotation()">Create Quotation</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quotations Table -->
+        <div class="card p-4 mt-4">
+            <h4>Created Quotations</h4>
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Price</th>
+                            <th>Farmer</th>
+                            <th>Buyer</th>
+                            <th>Approved</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="quotationBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script>
+        let web3;
+        let contractInstance;
+        let account;
+        const contractAddress = "0xC433c812F79A25756CD2d6f8AeFC569e4A01b273";
+        const abi = [
+          {
+            "inputs": [],
+            "stateMutability": "nonpayable",
+            "type": "constructor"
+          },
+          {
+            "anonymous": false,
+            "inputs": [
+              {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+              },
+              {
+                "indexed": false,
+                "internalType": "address",
+                "name": "buyer",
+                "type": "address"
+              }
+            ],
+            "name": "QuotationApproved",
+            "type": "event"
+          },
+          {
+            "anonymous": false,
+            "inputs": [
+              {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+              },
+              {
+                "indexed": false,
+                "internalType": "string",
+                "name": "product",
+                "type": "string"
+              },
+              {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "quantity",
+                "type": "uint256"
+              },
+              {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256"
+              },
+              {
+                "indexed": false,
+                "internalType": "address",
+                "name": "farmer",
+                "type": "address"
+              }
+            ],
+            "name": "QuotationCreated",
+            "type": "event"
+          },
+          {
+            "anonymous": false,
+            "inputs": [
+              {
+                "indexed": true,
+                "internalType": "address",
+                "name": "user",
+                "type": "address"
+              },
+              {
+                "indexed": false,
+                "internalType": "string",
+                "name": "role",
+                "type": "string"
+              }
+            ],
+            "name": "RoleAssigned",
+            "type": "event"
+          },
+          {
+            "anonymous": false,
+            "inputs": [
+              {
+                "indexed": true,
+                "internalType": "address",
+                "name": "user",
+                "type": "address"
+              },
+              {
+                "indexed": false,
+                "internalType": "string",
+                "name": "oldRole",
+                "type": "string"
+              },
+              {
+                "indexed": false,
+                "internalType": "string",
+                "name": "newRole",
+                "type": "string"
+              },
+              {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "timestamp",
+                "type": "uint256"
+              }
+            ],
+            "name": "RoleChanged",
+            "type": "event"
+          },
+          {
+            "inputs": [],
+            "name": "quotationCounter",
+            "outputs": [
+              {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+              }
+            ],
+            "stateMutability": "view",
+            "type": "function",
+            "constant": true
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+              }
+            ],
+            "name": "quotations",
+            "outputs": [
+              {
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+              },
+              {
+                "internalType": "string",
+                "name": "product",
+                "type": "string"
+              },
+              {
+                "internalType": "uint256",
+                "name": "quantity",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "price",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "farmer",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "buyer",
+                "type": "address"
+              },
+              {
+                "internalType": "bool",
+                "name": "approved",
+                "type": "bool"
+              }
+            ],
+            "stateMutability": "view",
+            "type": "function",
+            "constant": true
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+              }
+            ],
+            "name": "roleChanges",
+            "outputs": [
+              {
+                "internalType": "address",
+                "name": "user",
+                "type": "address"
+              },
+              {
+                "internalType": "string",
+                "name": "oldRole",
+                "type": "string"
+              },
+              {
+                "internalType": "string",
+                "name": "newRole",
+                "type": "string"
+              },
+              {
+                "internalType": "uint256",
+                "name": "timestamp",
+                "type": "uint256"
+              }
+            ],
+            "stateMutability": "view",
+            "type": "function",
+            "constant": true
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+              }
+            ],
+            "name": "roles",
+            "outputs": [
+              {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+              }
+            ],
+            "stateMutability": "view",
+            "type": "function",
+            "constant": true
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "string",
+                "name": "_role",
+                "type": "string"
+              }
+            ],
+            "name": "assignRole",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "string",
+                "name": "_product",
+                "type": "string"
+              },
+              {
+                "internalType": "uint256",
+                "name": "_quantity",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "_price",
+                "type": "uint256"
+              }
+            ],
+            "name": "createQuotation",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "uint256",
+                "name": "_id",
+                "type": "uint256"
+              }
+            ],
+            "name": "approveQuotation",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+          },
+          {
+            "inputs": [
+              {
+                "internalType": "uint256",
+                "name": "_id",
+                "type": "uint256"
+              }
+            ],
+            "name": "getQuotation",
+            "outputs": [
+              {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+              },
+              {
+                "internalType": "string",
+                "name": "",
+                "type": "string"
+              },
+              {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+              },
+              {
+                "internalType": "address",
+                "name": "",
+                "type": "address"
+              },
+              {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+              }
+            ],
+            "stateMutability": "view",
+            "type": "function",
+            "constant": true
+          },
+          {
+            "inputs": [],
+            "name": "getRoleChanges",
+            "outputs": [
+              {
+                "components": [
+                  {
+                    "internalType": "address",
+                    "name": "user",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "string",
+                    "name": "oldRole",
+                    "type": "string"
+                  },
+                  {
+                    "internalType": "string",
+                    "name": "newRole",
+                    "type": "string"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "timestamp",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct QuotationWithRoleContract.RoleChange[]",
+                "name": "",
+                "type": "tuple[]"
+              }
+            ],
+            "stateMutability": "view",
+            "type": "function",
+            "constant": true
+          }
+        ];
+
+        // Connect to MetaMask
+        async function loadWeb3() {
+            if (window.ethereum) {
+                web3 = new Web3(window.ethereum);
+                await window.ethereum.enable();
+                const accounts = await web3.eth.getAccounts();
+                account = accounts[0];
+                contractInstance = new web3.eth.Contract(abi, contractAddress);
+                console.log("Connected to MetaMask with account:", account);
+            } else {
+                alert("Please install MetaMask!");
+            }
+        }
+
+        // Show alert messages
+        function showAlert(message, type) {
+            const alertHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>`;
+            $('#alertContainer').append(alertHTML);
+        }
+
+        // Assign Role
+        async function assignRole() {
+            const role = document.getElementById("role").value;
+            try {
+                await contractInstance.methods.assignRole(role).send({ from: account });
+                showAlert(`Role assigned as ${role}`, 'success');
+            } catch (error) {
+                console.error("Error assigning role:", error.message);
+                showAlert("Error assigning role: " + error.message, 'danger');
+            }
+            loadQuotations();
+        }
+
+        // Create Quotation (Farmer Only)
+        async function createQuotation() {
+            const product = document.getElementById("product").value;
+            const quantity = parseInt(document.getElementById("quantity").value);
+            const price = parseInt(document.getElementById("price").value);
+
+            try {
+                await contractInstance.methods.createQuotation(product, quantity, price).send({
+                    from: account,
+                    gas: 300000
+                });
+                showAlert("Quotation created successfully!", 'success');
+            } catch (error) {
+                console.error("Error creating quotation:", error.message);
+                if (error.message.includes("Access restricted to Farmers")) {
+                    showAlert("You must be assigned the Farmer role to create a quotation.", 'danger');
+                } else {
+                    showAlert("Error creating quotation: " + error.message, 'danger');
+                }
+            }
+            loadQuotations();
+        }
+
+        // Approve Quotation (Buyer Only)
+        async function approveQuotation(quotationId) {
+            if (!quotationId) {
+                quotationId = parseInt(document.getElementById("quotationId").value);
+            }
+            try {
+                await contractInstance.methods.approveQuotation(quotationId).send({
+                    from: account,
+                    gas: 300000
+                });
+                showAlert("Quotation approved successfully!", 'success');
+            } catch (error) {
+                console.error("Error approving quotation:", error.message);
+                showAlert("Error approving quotation: " + error.message, 'danger');
+            }
+            loadQuotations();
+        }
+
+        // Get current user's role
+        async function getRole() {
+            try {
+                return await contractInstance.methods.roles(account).call();
+            } catch (error) {
+                console.error("Error fetching role:", error.message);
+                return null;
+            }
+        }
+
+        // Fetch and display quotations
+        async function loadQuotations() {
+            try {
+                const count = await contractInstance.methods.quotationCounter().call();
+                const quotations = [];
+
+                for (let i = 1; i <= count; i++) { // Note: Change i=0 to i=1 for indexing from 1
+                    const quotation = await contractInstance.methods.quotations(i).call();
+                    quotations.push(quotation);
+                }
+
+                const quotationBody = document.getElementById("quotationBody");
+                quotationBody.innerHTML = ''; // Clear existing table data
+
+                const role = await getRole(); // Get role once to avoid multiple calls
+
+                quotations.forEach(q => {
+                    const row = `
+                        <tr>
+                            <td>${q.id}</td>
+                            <td>${q.product}</td>
+                            <td>${q.quantity}</td>
+                            <td>${q.price}</td>
+                            <td>${q.farmer}</td>
+                            <td>${q.buyer || "Not Assigned"}</td>
+                            <td>${q.approved ? "Yes" : "No"}</td>
+                            <td>
+                                ${!q.approved && role === 'Buyer' ? 
+                                    `<button class="btn btn-warning btn-custom" onclick="approveQuotation(${q.id})">Approve</button>` : 
+                                    ''}
+                            </td>
+                        </tr>
+                    `;
+                    quotationBody.innerHTML += row;
+                });
+            } catch (error) {
+                console.error("Error loading quotations:", error.message);
+                showAlert("Error loading quotations: " + error.message, 'danger');
+            }
+        }
+
+        // Load quotations when the page loads
+        window.onload = async function() {
+            await loadWeb3();
+            await loadQuotations(); // Load quotations after web3 initialization
+        }
+    </script>
