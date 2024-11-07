@@ -512,6 +512,23 @@
             try {
                 await contractInstance.methods.assignRole(role).send({ from: account });
                 showAlert(`Role assigned as ${role}`, 'success');
+
+                // Prepare log data and send to backend for IPFS upload
+                const logData = { account, role, timestamp: new Date().toISOString() };
+
+                // Use fetch to call the backend upload API
+                const response = await fetch('http://localhost:3000/upload-ipfs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logData)
+                });
+
+                if (response.ok) {
+                    const { cid } = await response.json();
+                    showAlert(`Data uploaded to IPFS. CID: ${cid}`, 'success');
+                } else {
+                    showAlert("Failed to upload data to IPFS", 'danger');
+                }
             } catch (error) {
                 console.error("Error assigning role:", error.message);
                 showAlert("Error assigning role: " + error.message, 'danger');

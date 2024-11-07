@@ -3,7 +3,32 @@
 ```javascript
 npm instal -g truffle
 ```
-# Useful commands
+
+# Frontend
+```javascript
+npm start
+```
+
+# Backend
+## Running Server
+```javascript
+node backend.js
+```
+
+## Testing IPFS
+```curl
+curl -X POST http://localhost:3000/upload-ipfs \
+     -H "Content-Type: application/json" \
+     -d '{"key": "value"}'
+```
+
+```curl
+curl -X POST http://localhost:3000/upload-ipfs \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Alice", "message": "Hello IPFS!"}'
+```
+
+# Smart Contract
 
 ## Initialize truffle
 ```javascript
